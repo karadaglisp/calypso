@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calypso Fitness</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                        display: ['Lexend', 'sans-serif'],
+                    },
+                    colors: {
+                        calypso: {
+                            50: '#f0f9ff',
+                            100: '#e0f2fe',
+                            500: '#0ea5e9',
+                            600: '#0284c7',
+                            900: '#0c4a6e',
+                        }
+                    },
+                    animation: {
+                        'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                        'slide-up': 'slideUp 0.3s ease-out forwards',
+                    },
+                    keyframes: {
+                        slideUp: {
+                            '0%': { transform: 'translateY(100%)', opacity: '0' },
+                            '100%': { transform: 'translateY(0)', opacity: '1' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- React & Dependencies -->
+    <script type="importmap">
+    {
+      "imports": {
+        "react": "https://esm.sh/react@18.2.0",
+        "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
+        "lucide-react": "https://esm.sh/lucide-react?deps=react@18.2.0"
+      }
+    }
+    </script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <style>
+        body { transition: background-color 0.3s ease, color 0.3s ease; }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+        .dark ::-webkit-scrollbar-thumb { background: #475569; }
+        
+        .loader {
+            width: 48px;
+            height: 48px;
+            border: 5px solid #0ea5e9;
+            border-bottom-color: transparent;
+            border-radius: 50%;
+            display: inline-block;
+            box-sizing: border-box;
+            animation: rotation 1s linear infinite;
+        }
+
+        @keyframes rotation {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="bg-slate-50 dark:bg-slate-950 transition-colors duration-300 min-h-screen text-slate-800 dark:text-slate-100 font-sans">
+    <div id="root"></div>
+
+    <script type="text/babel" data-type="module">
+        import React, { useState, useEffect, useMemo, useRef } from 'react';
+        import { createRoot } from 'react-dom/client';
+        import { 
+            Play, Pause, RotateCcw, Settings, Coffee, 
+            ChevronLeft, ChevronRight, CheckCircle2, Circle,
+            ArrowUpCircle, Home, Warehouse, PersonStanding, Activity, 
+            Timer, Weight, ArrowRight, Save, Dumbbell, Info, Cloud, CloudOff, Loader2, Undo2
+        } from 'lucide-react';
+
+        // --- FIREBASE IMPORTS ---
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // --- FIREBASE INIT ---
+        const GITHUB_PAGES_CONFIG = {
+            apiKey: "AIzaSyBL1wtt06Vc34uSDm-P7FDOa-he890k39A",
+            authDomain: "circe-462d9.firebaseapp.com",
+            projectId: "circe-462d9",
+            storageBucket: "circe-462d9.firebasestorage.app",
+            messagingSenderId: "786922696936",
+            appId: "1:786922696936:web:beeb7f89908b808e5b995d"
+        };
+
+        let firebaseConfig;
+        try {
+            if (typeof __firebase_config !== 'undefined') {
+                firebaseConfig = JSON.parse(__firebase_config);
+            } else {
+                firebaseConfig = GITHUB_PAGES_CONFIG;
+            }
+        } catch (e) {
+            firebaseConfig = GITHUB_PAGES_CONFIG;
+        }
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'calypso-fitness';
+
+        // --- CONSTANTS & DATA ---
+        
+        // OPTIMIZATION: PPL + Rest (4 Day Cycle)
+        const GYM_CYCLE_LENGTH = 4;
+        
+        // Progression Logic
+        const PROGRESSION_STEPS = {
+            0: [8, 8, 10],   // Base
+            1: [10, 10, 12], // Volume Push
+            2: [12, 12, 12]  // Intensity Threshold -> Weight Increase
+        };
+
+        const WORKOUT_DATA = {
+            'gym': {
+                'push': [
+                    { id: 'gym_push1', name: 'Incline DB Press', startWeight: 22, unit: 'kg' },
+                    { id: 'gym_push2', name: 'Flat Bench Press', startWeight: 60, unit: 'kg' },
+                    { id: 'gym_push3', name: 'Overhead Press', startWeight: 35, unit: 'kg' },
+                    { id: 'gym_push4', name: 'DB Lateral Raises', startWeight: 10, unit: 'kg' },
+                    { id: 'gym_push5', name: 'Tricep Pushdown (Rope)', startWeight: 20, unit: 'kg' },
+                    { id: 'gym_push6', name: 'Overhead Tricep Ext', startWeight: 20, unit: 'kg' }
+                ],
+                'pull': [
+                    { id: 'gym_pull1', name: 'Lat Pulldown (Wide)', startWeight: 50, unit: 'kg' },
+                    { id: 'gym_pull2', name: 'Seated Cable Row', startWeight: 50, unit: 'kg' },
+                    { id: 'gym_pull3', name: 'Face Pulls', startWeight: 20, unit: 'kg' },
+                    { id: 'gym_pull4', name: 'Barbell Shrugs', startWeight: 60, unit: 'kg' },
+                    { id: 'gym_pull5', name: 'Barbell Curl', startWeight: 25, unit: 'kg' },
+                    { id: 'gym_pull6', name: 'Hammer Curls', startWeight: 12, unit: 'kg' }
+                ],
+                'legs': [
+                    { id: 'gym_legs1', name: 'Barbell Squat', startWeight: 70, unit: 'kg' },
+                    { id: 'gym_legs2', name: 'Romanian Deadlift', startWeight: 70, unit: 'kg' },
+                    { id: 'gym_legs3', name: 'Leg Press', startWeight: 120, unit: 'kg' },
+                    { id: 'gym_legs4', name: 'Leg Curls', startWeight: 40, unit: 'kg' },
+                    { id: 'gym_legs5', name: 'Calf Raises', startWeight: 60, unit: 'kg' },
+                    { id: 'gym_legs6', name: 'Cable Crunches', startWeight: 30, unit: 'kg' }
+                ]
+            },
+            'home': { 
+                'push': [
+                    { id: 'home_push1', name: 'Incline DB Press', startWeight: 20, gymEquiv: 'gym_push1', unit: 'kg' },
+                    { id: 'home_push2', name: 'DB Floor Press', startWeight: 22, gymEquiv: 'gym_push2', unit: 'kg' },
+                    { id: 'home_push3', name: 'DB Overhead Press', startWeight: 16, gymEquiv: 'gym_push3', unit: 'kg' },
+                    { id: 'home_push4', name: 'DB Lateral Raises', startWeight: 8, gymEquiv: 'gym_push4', unit: 'kg' },
+                    { id: 'home_push5', name: 'DB Skullcrushers', startWeight: 10, gymEquiv: 'gym_push5', unit: 'kg' },
+                    { id: 'home_push6', name: 'DB Overhead Ext', startWeight: 18, gymEquiv: 'gym_push6', unit: 'kg' }
+                ],
+                'pull': [
+                    { id: 'home_pull1', name: 'Pull-ups (or Band)', startWeight: 0, gymEquiv: 'gym_pull1', unit: 'kg' },
+                    { id: 'home_pull2', name: 'One Arm DB Row', startWeight: 22, gymEquiv: 'gym_pull2', unit: 'kg' },
+                    { id: 'home_pull3', name: 'DB Rear Delt Flys', startWeight: 8, gymEquiv: 'gym_pull3', unit: 'kg' },
+                    { id: 'home_pull4', name: 'DB Shrugs', startWeight: 24, gymEquiv: 'gym_pull4', unit: 'kg' },
+                    { id: 'home_pull5', name: 'DB Curl', startWeight: 12, gymEquiv: 'gym_pull5', unit: 'kg' },
+                    { id: 'home_pull6', name: 'Hammer Curls', startWeight: 12, gymEquiv: 'gym_pull6', unit: 'kg' }
+                ],
+                'legs': [
+                    { id: 'home_legs1', name: 'DB Goblet Squat', startWeight: 24, gymEquiv: 'gym_legs1', unit: 'kg' },
+                    { id: 'home_legs2', name: 'DB RDL', startWeight: 24, gymEquiv: 'gym_legs2', unit: 'kg' },
+                    { id: 'home_legs3', name: 'DB Lunges', startWeight: 12, gymEquiv: 'gym_legs3', unit: 'kg' },
+                    { id: 'home_legs4', name: 'Nordic Curl (Negatives)', startWeight: 0, gymEquiv: 'gym_legs4', unit: 'kg' },
+                    { id: 'home_legs5', name: 'Single Leg Calf Raise', startWeight: 0, gymEquiv: 'gym_legs5', unit: 'kg' },
+                    { id: 'home_legs6', name: 'Weighted Situps', startWeight: 10, gymEquiv: 'gym_legs6', unit: 'kg' }
+                ]
+            },
+            'body': { 
+                'push': [
+                    { id: 'body_push1', name: 'Decline Pushups', startWeight: 0, gymEquiv: 'gym_push1', unit: 'kg' },
+                    { id: 'body_push2', name: 'Wide Pushups', startWeight: 0, gymEquiv: 'gym_push2', unit: 'kg' },
+                    { id: 'body_push3', name: 'Pike Pushups', startWeight: 0, gymEquiv: 'gym_push3', unit: 'kg' },
+                    { id: 'body_push4', name: 'Y-Raises (Floor)', startWeight: 0, gymEquiv: 'gym_push4', unit: 'kg' },
+                    { id: 'body_push5', name: 'Diamond Pushups', startWeight: 0, gymEquiv: 'gym_push5', unit: 'kg' },
+                    { id: 'body_push6', name: 'Bodyweight Tricep Ext', startWeight: 0, gymEquiv: 'gym_push6', unit: 'kg' }
+                ],
+                'pull': [
+                    { id: 'body_pull1', name: 'Pull-ups', startWeight: 0, gymEquiv: 'gym_pull1', unit: 'kg' },
+                    { id: 'body_pull2', name: 'Inverted Row', startWeight: 0, gymEquiv: 'gym_pull2', unit: 'kg' },
+                    { id: 'body_pull3', name: 'Doorframe Face Pulls', startWeight: 0, gymEquiv: 'gym_pull3', unit: 'kg' },
+                    { id: 'body_pull4', name: 'Inverted Shrugs', startWeight: 0, gymEquiv: 'gym_pull4', unit: 'kg' },
+                    { id: 'body_pull5', name: 'Chin-ups', startWeight: 0, gymEquiv: 'gym_pull5', unit: 'kg' },
+                    { id: 'body_pull6', name: 'Towel Hammer Curls', startWeight: 0, gymEquiv: 'gym_pull6', unit: 'kg' }
+                ],
+                'legs': [
+                    { id: 'body_legs1', name: 'Pistol Squats (Assisted)', startWeight: 0, gymEquiv: 'gym_legs1', unit: 'kg' },
+                    { id: 'body_legs2', name: 'Single Leg Glute Bridge', startWeight: 0, gymEquiv: 'gym_legs2', unit: 'kg' },
+                    { id: 'body_legs3', name: 'Bulgarian Split Squat', startWeight: 0, gymEquiv: 'gym_legs3', unit: 'kg' },
+                    { id: 'body_legs4', name: 'Nordic Curls', startWeight: 0, gymEquiv: 'gym_legs4', unit: 'kg' },
+                    { id: 'body_legs5', name: 'Calf Raises', startWeight: 0, gymEquiv: 'gym_legs5', unit: 'kg' },
+                    { id: 'body_legs6', name: 'Leg Raises', startWeight: 0, gymEquiv: 'gym_legs6', unit: 'kg' }
+                ]
+            }
+        };
+
+        const formatTime = (seconds) => {
+            const m = Math.floor(seconds / 60);
+            const s = seconds % 60;
+            return `${m}:${s.toString().padStart(2, '0')}`;
+        };
+
+        // --- HOOK: DEBOUNCE ---
+        function useDebounce(value, delay) {
+            const [debouncedValue, setDebouncedValue] = useState(value);
+            useEffect(() => {
+                const handler = setTimeout(() => { setDebouncedValue(value); }, delay);
+                return () => clearTimeout(handler);
+            }, [value, delay]);
+            return debouncedValue;
+        }
+
+        // --- COMPONENT: Exercise Card ---
+        const ExerciseCard = ({ exercise, progress, onUpdate, gymProgress }) => {
+            const userProg = progress[exercise.id] || { weight: exercise.startWeight, step: 0 };
+            const { weight, step } = userProg;
+            const targets = PROGRESSION_STEPS[step];
+            
+            // To properly handle external "undo" resetting the visuals, we can key sessionData slightly
+            // But for simple experience, we'll keep it local. If user undos, "Done" might stay 
+            // but the weight in header reverts. This is acceptable for simple usage.
+            const [sessionData, setSessionData] = useState({
+                s1: '', s2: '', s3: '',
+                c1: false, c2: false, c3: false
+            });
+
+            // Effect: Reset session data checks if the weight/step changes drastically "backwards" 
+            // (indicating an undo), or if it's a new "next session". 
+            // For now, we leave it simple.
+
+            const gymEquivData = exercise.gymEquiv && gymProgress[exercise.gymEquiv] 
+                ? gymProgress[exercise.gymEquiv] 
+                : null;
+            const gymEquivDisplay = gymEquivData 
+                ? `${gymEquivData.weight}kg (Step ${gymEquivData.step + 1})`
+                : null;
+
+            const handleCheck = (setIndex) => {
+                setSessionData(prev => {
+                    const key = `c${setIndex + 1}`;
+                    const valKey = `s${setIndex + 1}`;
+                    const newVal = !prev[key];
+                    let newData = { ...prev, [key]: newVal };
+                    if (newVal && prev[valKey] === '') {
+                        newData[valKey] = targets[setIndex];
+                    }
+                    if (newData.c1 && newData.c2 && newData.c3) {
+                         setTimeout(() => handleComplete(newData), 100);
+                    }
+                    return newData;
+                });
+            };
+
+            const handleChange = (setIndex, value) => {
+                setSessionData(prev => ({ ...prev, [`s${setIndex + 1}`]: value }));
+            };
+
+            const handleComplete = (finalSessionData) => {
+                const r1 = parseInt(finalSessionData.s1) || 0;
+                const r2 = parseInt(finalSessionData.s2) || 0;
+                const r3 = parseInt(finalSessionData.s3) || 0;
+                
+                let nextStep = step;
+                let nextWeight = weight;
+                let message = "Progress maintained.";
+
+                const t1 = targets[0];
+                const t2 = targets[1];
+                const t3 = targets[2];
+
+                if (r1 >= t1 && r2 >= t2 && r3 >= t3) {
+                    if (step === 2) {
+                        nextWeight = weight + 2.5;
+                        nextStep = 0;
+                        message = "Cycle Complete! Weight Increased.";
+                    } else {
+                        nextStep = step + 1;
+                        message = "Great job! Rep targets increased.";
+                    }
+                } else {
+                     message = "Keep pushing! Targets retained.";
+                }
+                onUpdate(exercise.id, nextWeight, nextStep, message);
+            };
+
+            const isDone = sessionData.c1 && sessionData.c2 && sessionData.c3;
+
+            return (
+                <div className={`p-5 rounded-2xl border shadow-sm transition-all duration-500 ${isDone ? 'bg-emerald-50 dark:bg-emerald-900/10 border-emerald-200 dark:border-emerald-800' : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700'}`}>
+                    <div className="flex justify-between items-start mb-4">
+                        <div>
+                            <h3 className={`font-bold text-lg ${isDone ? 'text-emerald-700 dark:text-emerald-400' : 'text-slate-800 dark:text-slate-100'}`}>{exercise.name}</h3>
+                            {gymEquivDisplay && (
+                                <div className="flex items-center gap-1.5 text-xs font-medium text-slate-400 mt-1">
+                                    <Dumbbell className="w-3 h-3" />
+                                    <span>Gym Equiv: {gymEquivDisplay}</span>
+                                </div>
+                            )}
+                        </div>
+                        <div className="flex flex-col items-end">
+                            <span className="text-2xl font-bold font-display text-calypso-600 dark:text-calypso-500">
+                                {weight}<span className="text-sm text-slate-400 font-sans font-normal ml-0.5">{exercise.unit}</span>
+                            </span>
+                            <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Working Weight</span>
+                        </div>
+                    </div>
+                    <div className="space-y-3">
+                        {[0, 1, 2].map((idx) => (
+                            <div key={idx} className="flex items-center gap-3">
+                                <div className="w-8 text-xs font-bold text-slate-400 uppercase">Set {idx + 1}</div>
+                                <div className="flex-1 bg-slate-100 dark:bg-slate-700/50 rounded-lg p-1.5 flex justify-between items-center px-3 relative">
+                                    <div className="text-xs text-slate-400 font-medium">Goal: {targets[idx]}</div>
+                                    <input 
+                                        type="number" 
+                                        placeholder={targets[idx]}
+                                        value={sessionData[`s${idx+1}`]}
+                                        onChange={(e) => handleChange(idx, e.target.value)}
+                                        className={`w-12 text-center bg-transparent font-bold text-lg focus:outline-none ${isDone ? 'text-emerald-600' : 'text-slate-700 dark:text-slate-200'}`}
+                                    />
+                                </div>
+                                <button 
+                                    onClick={() => handleCheck(idx)}
+                                    className={`p-2 rounded-full transition-all ${sessionData[`c${idx+1}`] ? 'bg-emerald-500 text-white shadow-md shadow-emerald-200 dark:shadow-none' : 'bg-slate-100 dark:bg-slate-700 text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600'}`}
+                                >
+                                    {sessionData[`c${idx+1}`] ? <CheckCircle2 className="w-5 h-5" /> : <Circle className="w-5 h-5" />}
+                                </button>
+                            </div>
+                        ))}
+                    </div>
+                    {isDone && (
+                        <div className="mt-4 p-2 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 text-xs font-bold text-center rounded-lg animate-pulse">
+                            Progress Saved
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        // --- COMPONENT: Calypso Main ---
+        const CalypsoApp = () => {
+            const [user, setUser] = useState(null);
+            const [loading, setLoading] = useState(true);
+            const [selectedDate, setSelectedDate] = useState(new Date());
+            const [environment, setEnvironment] = useState('gym');
+            const [isDarkMode, setIsDarkMode] = useState(true);
+            
+            // Persisted States
+            const [startDate, setStartDate] = useState(new Date().toISOString()); 
+            const [progress, setProgress] = useState({});
+            
+            // Undo State
+            const [undoState, setUndoState] = useState({ active: false, type: null, data: null, msg: '' });
+            
+            // Timer State
+            const [timerState, setTimerState] = useState({ 
+                mode: 'rest', 
+                timeLeft: 90, 
+                isRunning: false,
+                workDuration: 45,
+                restDuration: 90
+            });
+
+            // 1. Auth Init
+            useEffect(() => {
+                const initAuth = async () => {
+                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                        await signInWithCustomToken(auth, __initial_auth_token);
+                    } else {
+                        await signInAnonymously(auth);
+                    }
+                };
+                initAuth();
+
+                const unsubscribeAuth = onAuthStateChanged(auth, (currentUser) => {
+                    setUser(currentUser);
+                    if (!currentUser) setLoading(false);
+                });
+                return () => unsubscribeAuth();
+            }, []);
+
+            // 2. Data Sync (Read)
+            useEffect(() => {
+                if (!user) return;
+                const docRef = doc(db, 'artifacts', appId, 'users', user.uid, 'data', 'calypso_storage');
+                const unsubscribe = onSnapshot(docRef, (docSnap) => {
+                    if (docSnap.exists()) {
+                        const data = docSnap.data();
+                        if (data.progress) setProgress(data.progress);
+                        if (data.startDate) setStartDate(data.startDate);
+                        if (data.environment) setEnvironment(data.environment);
+                    }
+                    setLoading(false);
+                }, (err) => {
+                    console.error("Fetch Error:", err);
+                    setLoading(false);
+                });
+                return () => unsubscribe();
+            }, [user]);
+
+            // 3. Data Sync (Write)
+            const debouncedProgress = useDebounce(progress, 1000);
+            
+            useEffect(() => {
+                if (!user || loading) return;
+                const saveData = async () => {
+                    try {
+                        const docRef = doc(db, 'artifacts', appId, 'users', user.uid, 'data', 'calypso_storage');
+                        await setDoc(docRef, {
+                            progress: debouncedProgress,
+                            startDate,
+                            environment,
+                            lastUpdated: new Date().toISOString()
+                        }, { merge: true });
+                    } catch (e) { console.error("Save Error:", e); }
+                };
+                saveData();
+            }, [debouncedProgress, startDate, environment, user]);
+
+            // Timer Logic
+            useEffect(() => {
+                let interval;
+                if (timerState.isRunning && timerState.timeLeft > 0) {
+                    interval = setInterval(() => {
+                        setTimerState(prev => ({ ...prev, timeLeft: prev.timeLeft - 1 }));
+                    }, 1000);
+                } else if (timerState.isRunning && timerState.timeLeft === 0) {
+                    setTimerState(prev => ({ 
+                        ...prev, 
+                        isRunning: false, 
+                        mode: prev.mode === 'work' ? 'rest' : 'work',
+                        timeLeft: prev.mode === 'work' ? prev.restDuration : prev.workDuration
+                    }));
+                }
+                return () => clearInterval(interval);
+            }, [timerState.isRunning, timerState.timeLeft]);
+
+            const toggleTimer = () => setTimerState(p => ({ ...p, isRunning: !p.isRunning }));
+            const resetTimer = () => setTimerState(p => ({ ...p, isRunning: false, timeLeft: p.mode === 'work' ? p.workDuration : p.restDuration }));
+
+            useEffect(() => {
+                const html = document.documentElement;
+                if (isDarkMode) html.classList.add('dark');
+                else html.classList.remove('dark');
+            }, [isDarkMode]);
+
+            // Undo Logic
+            const triggerUndo = (type, data, msg) => {
+                setUndoState({ active: true, type, data, msg });
+                // Auto hide after 6 seconds
+                setTimeout(() => {
+                    setUndoState(prev => prev.type === type && prev.data === data ? { ...prev, active: false } : prev);
+                }, 6000);
+            };
+
+            const performUndo = () => {
+                if (!undoState.active) return;
+                
+                if (undoState.type === 'SHIFT') {
+                    setStartDate(undoState.data);
+                } else if (undoState.type === 'PROGRESS') {
+                    const { id, oldProg } = undoState.data;
+                    setProgress(prev => ({ ...prev, [id]: oldProg }));
+                }
+                
+                setUndoState({ active: false, type: null, data: null, msg: '' });
+            };
+
+            const getWorkoutType = (date) => {
+                const start = new Date(startDate);
+                const current = new Date(date);
+                start.setHours(0,0,0,0);
+                current.setHours(0,0,0,0);
+                
+                const diffTime = current - start;
+                const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+                const cycleIndex = ((diffDays % GYM_CYCLE_LENGTH) + GYM_CYCLE_LENGTH) % GYM_CYCLE_LENGTH;
+                
+                switch(cycleIndex) {
+                    case 0: return { type: 'push', label: 'Push Day', color: 'bg-rose-500', text: 'text-rose-600', border: 'border-rose-500' };
+                    case 1: return { type: 'pull', label: 'Pull Day', color: 'bg-calypso-500', text: 'text-calypso-600', border: 'border-calypso-500' };
+                    case 2: return { type: 'legs', label: 'Leg Day', color: 'bg-emerald-500', text: 'text-emerald-600', border: 'border-emerald-500' };
+                    case 3: return { type: 'rest', label: 'Rest Day', color: 'bg-slate-400', text: 'text-slate-500', border: 'border-slate-400' };
+                    default: return { type: 'rest', label: 'Rest Day', color: 'bg-slate-400', text: 'text-slate-500', border: 'border-slate-400' };
+                }
+            };
+
+            const handleUpdateProgress = (id, newWeight, newStep, msg) => {
+                // Capture old state for undo
+                const oldProg = progress[id] || { weight: newWeight, step: 0 }; // Approx default if new
+                triggerUndo('PROGRESS', { id, oldProg }, 'Progress Updated');
+
+                setProgress(prev => ({
+                    ...prev,
+                    [id]: { weight: newWeight, step: newStep }
+                }));
+            };
+
+            const shiftDate = (days) => {
+                const newDate = new Date(selectedDate);
+                newDate.setDate(newDate.getDate() + days);
+                setSelectedDate(newDate);
+            };
+
+            const postponeSchedule = () => {
+                // Capture old state for undo
+                triggerUndo('SHIFT', startDate, 'Cycle Postponed');
+
+                const newStart = new Date(startDate);
+                newStart.setDate(newStart.getDate() + 1);
+                setStartDate(newStart.toISOString());
+            };
+
+            const workout = getWorkoutType(selectedDate);
+            const isRest = workout.type === 'rest';
+            const program = isRest ? [] : WORKOUT_DATA[environment][workout.type] || [];
+            
+            if (loading) {
+                return (
+                    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col items-center justify-center">
+                        <div className="loader"></div>
+                        <p className="mt-4 text-slate-500 dark:text-slate-400 font-bold animate-pulse">Syncing Calypso...</p>
+                    </div>
+                );
+            }
+
+            return (
+                <div className="max-w-md mx-auto min-h-screen bg-slate-50 dark:bg-slate-950 pb-20 relative">
+                    <div className="sticky top-0 z-20 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 p-4">
+                        <div className="flex justify-between items-center mb-4">
+                            <h1 className="text-2xl font-display font-bold text-slate-800 dark:text-white tracking-tight">
+                                Calypso<span className="text-calypso-500">.</span>
+                            </h1>
+                            <div className="flex gap-2">
+                                <div className="p-2 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500" title={user ? "Cloud Synced" : "Offline"}>
+                                    {user ? <Cloud className="w-5 h-5 text-emerald-500" /> : <CloudOff className="w-5 h-5 text-rose-500" />}
+                                </div>
+                                <button onClick={() => setIsDarkMode(!isDarkMode)} className="p-2 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500">
+                                    {isDarkMode ? "☀・" : "・"}
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div className="flex items-center gap-3 bg-slate-100 dark:bg-slate-800 rounded-xl p-2">
+                            <div className="flex-1 flex items-center justify-between px-2">
+                                <div className="flex items-center gap-2">
+                                    <Timer className={`w-4 h-4 ${timerState.isRunning ? 'text-calypso-500 animate-pulse' : 'text-slate-400'}`} />
+                                    <span className={`font-mono font-bold text-xl ${timerState.timeLeft < 10 ? 'text-rose-500' : 'text-slate-700 dark:text-slate-200'}`}>
+                                        {formatTime(timerState.timeLeft)}
+                                    </span>
+                                </div>
+                                <span className="text-xs font-bold uppercase text-slate-400">{timerState.mode}</span>
+                            </div>
+                            <button onClick={toggleTimer} className={`p-3 rounded-lg shadow-sm ${timerState.isRunning ? 'bg-amber-100 text-amber-600 dark:bg-amber-900/30' : 'bg-white dark:bg-slate-700 text-calypso-600'}`}>
+                                {timerState.isRunning ? <Pause className="w-4 h-4 fill-current" /> : <Play className="w-4 h-4 fill-current" />}
+                            </button>
+                            <button onClick={resetTimer} className="p-3 bg-white dark:bg-slate-700 text-slate-400 rounded-lg hover:text-slate-600">
+                                <RotateCcw className="w-4 h-4" />
+                            </button>
+                        </div>
+                    </div>
+
+                    <div className="px-4 py-4 flex items-center justify-between">
+                        <button onClick={() => shiftDate(-1)} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full"><ChevronLeft className="w-5 h-5 text-slate-500" /></button>
+                        <div className="text-center">
+                            <h2 className="text-sm font-bold text-slate-900 dark:text-white">{selectedDate.toLocaleDateString('en-US', { weekday: 'long' })}</h2>
+                            <p className="text-xs text-slate-500 dark:text-slate-400">{selectedDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}</p>
+                        </div>
+                        <button onClick={() => shiftDate(1)} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full"><ChevronRight className="w-5 h-5 text-slate-500" /></button>
+                    </div>
+
+                    <div className="px-4 mb-6">
+                        <div className="bg-white dark:bg-slate-900 p-1 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 flex">
+                            {[ {id: 'gym', label: 'Gym', icon: Warehouse}, {id: 'home', label: 'Home', icon: Home}, {id: 'body', label: 'Body', icon: PersonStanding} ].map(env => (
+                                <button 
+                                    key={env.id}
+                                    onClick={() => setEnvironment(env.id)}
+                                    className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-xs font-bold transition-all ${environment === env.id ? 'bg-calypso-500 text-white shadow-md' : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-300'}`}
+                                >
+                                    <env.icon className="w-3.5 h-3.5" /> {env.label}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    <div className="px-4 space-y-6">
+                        <div className={`p-6 rounded-3xl bg-white dark:bg-slate-900 shadow-sm border-l-8 ${workout.border} flex flex-col md:flex-row justify-between items-start md:items-center gap-4`}>
+                            <div>
+                                <h2 className="text-2xl font-display font-bold text-slate-800 dark:text-white">{workout.label}</h2>
+                                <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">{isRest ? 'Recovery & Mobility' : `${program.length} Exercises`}</p>
+                            </div>
+                            <div className="flex items-center gap-2 w-full md:w-auto">
+                                <button onClick={postponeSchedule} className="px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 flex items-center gap-2 transition-colors ml-auto">
+                                    <ArrowRight className="w-4 h-4" /> Shift Cycle
+                                </button>
+                            </div>
+                        </div>
+
+                        {!isRest ? (
+                            <div className="space-y-4">
+                                {program.map(ex => (
+                                    <ExerciseCard 
+                                        key={ex.id} 
+                                        exercise={ex} 
+                                        progress={progress} 
+                                        onUpdate={handleUpdateProgress}
+                                        gymProgress={progress} 
+                                    />
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="py-12 text-center text-slate-400">
+                                <Coffee className="w-16 h-16 mx-auto mb-4 opacity-50" />
+                                <p className="text-lg font-medium">Enjoy your rest day.</p>
+                                <p className="text-sm">Light walking or stretching is recommended.</p>
+                            </div>
+                        )}
+                        <div className="h-20"></div>
+                    </div>
+
+                    {/* Undo Toast */}
+                    {undoState.active && (
+                        <div className="fixed bottom-6 left-4 right-4 max-w-md mx-auto z-50 animate-slide-up">
+                            <div className="bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 p-4 rounded-xl shadow-2xl flex items-center justify-between">
+                                <div className="text-sm font-medium">{undoState.msg}</div>
+                                <button 
+                                    onClick={performUndo}
+                                    className="flex items-center gap-2 px-3 py-1.5 bg-slate-700 dark:bg-slate-200 hover:bg-slate-600 dark:hover:bg-slate-300 rounded-lg text-xs font-bold transition-colors"
+                                >
+                                    <Undo2 className="w-4 h-4" /> Undo
+                                </button>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        const root = createRoot(document.getElementById('root'));
+        root.render(<CalypsoApp />);
+    </script>
+</body>
+</html>
