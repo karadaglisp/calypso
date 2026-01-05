@@ -235,17 +235,10 @@
             const { weight, step } = userProg;
             const targets = PROGRESSION_STEPS[step];
             
-            // To properly handle external "undo" resetting the visuals, we can key sessionData slightly
-            // But for simple experience, we'll keep it local. If user undos, "Done" might stay 
-            // but the weight in header reverts. This is acceptable for simple usage.
             const [sessionData, setSessionData] = useState({
                 s1: '', s2: '', s3: '',
                 c1: false, c2: false, c3: false
             });
-
-            // Effect: Reset session data checks if the weight/step changes drastically "backwards" 
-            // (indicating an undo), or if it's a new "next session". 
-            // For now, we leave it simple.
 
             const gymEquivData = exercise.gymEquiv && gymProgress[exercise.gymEquiv] 
                 ? gymProgress[exercise.gymEquiv] 
@@ -305,46 +298,48 @@
             const isDone = sessionData.c1 && sessionData.c2 && sessionData.c3;
 
             return (
-                <div className={`p-5 rounded-2xl border shadow-sm transition-all duration-500 ${isDone ? 'bg-emerald-50 dark:bg-emerald-900/10 border-emerald-200 dark:border-emerald-800' : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700'}`}>
-                    <div className="flex justify-between items-start mb-4">
-                        <div>
-                            <h3 className={`font-bold text-lg ${isDone ? 'text-emerald-700 dark:text-emerald-400' : 'text-slate-800 dark:text-slate-100'}`}>{exercise.name}</h3>
-                            {gymEquivDisplay && (
-                                <div className="flex items-center gap-1.5 text-xs font-medium text-slate-400 mt-1">
-                                    <Dumbbell className="w-3 h-3" />
-                                    <span>Gym Equiv: {gymEquivDisplay}</span>
-                                </div>
-                            )}
-                        </div>
-                        <div className="flex flex-col items-end">
-                            <span className="text-2xl font-bold font-display text-calypso-600 dark:text-calypso-500">
-                                {weight}<span className="text-sm text-slate-400 font-sans font-normal ml-0.5">{exercise.unit}</span>
-                            </span>
-                            <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Working Weight</span>
-                        </div>
-                    </div>
-                    <div className="space-y-3">
-                        {[0, 1, 2].map((idx) => (
-                            <div key={idx} className="flex items-center gap-3">
-                                <div className="w-8 text-xs font-bold text-slate-400 uppercase">Set {idx + 1}</div>
-                                <div className="flex-1 bg-slate-100 dark:bg-slate-700/50 rounded-lg p-1.5 flex justify-between items-center px-3 relative">
-                                    <div className="text-xs text-slate-400 font-medium">Goal: {targets[idx]}</div>
-                                    <input 
-                                        type="number" 
-                                        placeholder={targets[idx]}
-                                        value={sessionData[`s${idx+1}`]}
-                                        onChange={(e) => handleChange(idx, e.target.value)}
-                                        className={`w-12 text-center bg-transparent font-bold text-lg focus:outline-none ${isDone ? 'text-emerald-600' : 'text-slate-700 dark:text-slate-200'}`}
-                                    />
-                                </div>
-                                <button 
-                                    onClick={() => handleCheck(idx)}
-                                    className={`p-2 rounded-full transition-all ${sessionData[`c${idx+1}`] ? 'bg-emerald-500 text-white shadow-md shadow-emerald-200 dark:shadow-none' : 'bg-slate-100 dark:bg-slate-700 text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600'}`}
-                                >
-                                    {sessionData[`c${idx+1}`] ? <CheckCircle2 className="w-5 h-5" /> : <Circle className="w-5 h-5" />}
-                                </button>
+                <div className={`p-5 rounded-2xl border shadow-sm transition-all duration-500 h-full flex flex-col justify-between ${isDone ? 'bg-emerald-50 dark:bg-emerald-900/10 border-emerald-200 dark:border-emerald-800' : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700'}`}>
+                    <div>
+                        <div className="flex justify-between items-start mb-4">
+                            <div>
+                                <h3 className={`font-bold text-lg ${isDone ? 'text-emerald-700 dark:text-emerald-400' : 'text-slate-800 dark:text-slate-100'}`}>{exercise.name}</h3>
+                                {gymEquivDisplay && (
+                                    <div className="flex items-center gap-1.5 text-xs font-medium text-slate-400 mt-1">
+                                        <Dumbbell className="w-3 h-3" />
+                                        <span>Gym Equiv: {gymEquivDisplay}</span>
+                                    </div>
+                                )}
                             </div>
-                        ))}
+                            <div className="flex flex-col items-end">
+                                <span className="text-2xl font-bold font-display text-calypso-600 dark:text-calypso-500">
+                                    {weight}<span className="text-sm text-slate-400 font-sans font-normal ml-0.5">{exercise.unit}</span>
+                                </span>
+                                <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Working Weight</span>
+                            </div>
+                        </div>
+                        <div className="space-y-3">
+                            {[0, 1, 2].map((idx) => (
+                                <div key={idx} className="flex items-center gap-3">
+                                    <div className="w-8 text-xs font-bold text-slate-400 uppercase">Set {idx + 1}</div>
+                                    <div className="flex-1 bg-slate-100 dark:bg-slate-700/50 rounded-lg p-1.5 flex justify-between items-center px-3 relative">
+                                        <div className="text-xs text-slate-400 font-medium">Goal: {targets[idx]}</div>
+                                        <input 
+                                            type="number" 
+                                            placeholder={targets[idx]}
+                                            value={sessionData[`s${idx+1}`]}
+                                            onChange={(e) => handleChange(idx, e.target.value)}
+                                            className={`w-12 text-center bg-transparent font-bold text-lg focus:outline-none ${isDone ? 'text-emerald-600' : 'text-slate-700 dark:text-slate-200'}`}
+                                        />
+                                    </div>
+                                    <button 
+                                        onClick={() => handleCheck(idx)}
+                                        className={`p-2 rounded-full transition-all ${sessionData[`c${idx+1}`] ? 'bg-emerald-500 text-white shadow-md shadow-emerald-200 dark:shadow-none' : 'bg-slate-100 dark:bg-slate-700 text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600'}`}
+                                    >
+                                        {sessionData[`c${idx+1}`] ? <CheckCircle2 className="w-5 h-5" /> : <Circle className="w-5 h-5" />}
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
                     </div>
                     {isDone && (
                         <div className="mt-4 p-2 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 text-xs font-bold text-center rounded-lg animate-pulse">
@@ -465,7 +460,6 @@
             // Undo Logic
             const triggerUndo = (type, data, msg) => {
                 setUndoState({ active: true, type, data, msg });
-                // Auto hide after 6 seconds
                 setTimeout(() => {
                     setUndoState(prev => prev.type === type && prev.data === data ? { ...prev, active: false } : prev);
                 }, 6000);
@@ -504,8 +498,7 @@
             };
 
             const handleUpdateProgress = (id, newWeight, newStep, msg) => {
-                // Capture old state for undo
-                const oldProg = progress[id] || { weight: newWeight, step: 0 }; // Approx default if new
+                const oldProg = progress[id] || { weight: newWeight, step: 0 };
                 triggerUndo('PROGRESS', { id, oldProg }, 'Progress Updated');
 
                 setProgress(prev => ({
@@ -521,7 +514,6 @@
             };
 
             const postponeSchedule = () => {
-                // Capture old state for undo
                 triggerUndo('SHIFT', startDate, 'Cycle Postponed');
 
                 const newStart = new Date(startDate);
@@ -543,97 +535,136 @@
             }
 
             return (
-                <div className="max-w-md mx-auto min-h-screen bg-slate-50 dark:bg-slate-950 pb-20 relative">
-                    <div className="sticky top-0 z-20 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 p-4">
-                        <div className="flex justify-between items-center mb-4">
-                            <h1 className="text-2xl font-display font-bold text-slate-800 dark:text-white tracking-tight">
-                                Calypso<span className="text-calypso-500">.</span>
-                            </h1>
-                            <div className="flex gap-2">
-                                <div className="p-2 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500" title={user ? "Cloud Synced" : "Offline"}>
-                                    {user ? <Cloud className="w-5 h-5 text-emerald-500" /> : <CloudOff className="w-5 h-5 text-rose-500" />}
+                <div className="min-h-screen bg-slate-50 dark:bg-slate-950 pb-20 md:pb-0 relative">
+                    {/* Header: Sticky on all devices */}
+                    <div className="sticky top-0 z-20 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800">
+                        <div className="max-w-7xl mx-auto px-4 md:px-6 py-4">
+                            <div className="flex justify-between items-center">
+                                <h1 className="text-2xl font-display font-bold text-slate-800 dark:text-white tracking-tight flex items-center gap-2">
+                                    Calypso<span className="text-calypso-500">.</span>
+                                </h1>
+                                
+                                {/* Timer Bar (Desktop: visible here, Mobile: visible here too for consistency) */}
+                                <div className="hidden md:flex items-center gap-3 bg-slate-100 dark:bg-slate-800 rounded-xl p-2 mx-8 flex-1 max-w-lg">
+                                    <div className="flex-1 flex items-center justify-between px-2">
+                                        <div className="flex items-center gap-2">
+                                            <Timer className={`w-4 h-4 ${timerState.isRunning ? 'text-calypso-500 animate-pulse' : 'text-slate-400'}`} />
+                                            <span className={`font-mono font-bold text-xl ${timerState.timeLeft < 10 ? 'text-rose-500' : 'text-slate-700 dark:text-slate-200'}`}>
+                                                {formatTime(timerState.timeLeft)}
+                                            </span>
+                                        </div>
+                                        <span className="text-xs font-bold uppercase text-slate-400">{timerState.mode}</span>
+                                    </div>
+                                    <button onClick={toggleTimer} className={`p-2 rounded-lg shadow-sm ${timerState.isRunning ? 'bg-amber-100 text-amber-600 dark:bg-amber-900/30' : 'bg-white dark:bg-slate-700 text-calypso-600'}`}>
+                                        {timerState.isRunning ? <Pause className="w-4 h-4 fill-current" /> : <Play className="w-4 h-4 fill-current" />}
+                                    </button>
+                                    <button onClick={resetTimer} className="p-2 bg-white dark:bg-slate-700 text-slate-400 rounded-lg hover:text-slate-600">
+                                        <RotateCcw className="w-4 h-4" />
+                                    </button>
                                 </div>
-                                <button onClick={() => setIsDarkMode(!isDarkMode)} className="p-2 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500">
-                                    {isDarkMode ? "☀・" : "・"}
+
+                                <div className="flex gap-2">
+                                    <div className="p-2 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500" title={user ? "Cloud Synced" : "Offline"}>
+                                        {user ? <Cloud className="w-5 h-5 text-emerald-500" /> : <CloudOff className="w-5 h-5 text-rose-500" />}
+                                    </div>
+                                    <button onClick={() => setIsDarkMode(!isDarkMode)} className="p-2 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500">
+                                        {isDarkMode ? "☀・" : "・"}
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Mobile Timer (Shown below header on small screens) */}
+                            <div className="md:hidden flex items-center gap-3 bg-slate-100 dark:bg-slate-800 rounded-xl p-2 mt-4">
+                                <div className="flex-1 flex items-center justify-between px-2">
+                                    <div className="flex items-center gap-2">
+                                        <Timer className={`w-4 h-4 ${timerState.isRunning ? 'text-calypso-500 animate-pulse' : 'text-slate-400'}`} />
+                                        <span className={`font-mono font-bold text-xl ${timerState.timeLeft < 10 ? 'text-rose-500' : 'text-slate-700 dark:text-slate-200'}`}>
+                                            {formatTime(timerState.timeLeft)}
+                                        </span>
+                                    </div>
+                                    <span className="text-xs font-bold uppercase text-slate-400">{timerState.mode}</span>
+                                </div>
+                                <button onClick={toggleTimer} className={`p-3 rounded-lg shadow-sm ${timerState.isRunning ? 'bg-amber-100 text-amber-600 dark:bg-amber-900/30' : 'bg-white dark:bg-slate-700 text-calypso-600'}`}>
+                                    {timerState.isRunning ? <Pause className="w-4 h-4 fill-current" /> : <Play className="w-4 h-4 fill-current" />}
+                                </button>
+                                <button onClick={resetTimer} className="p-3 bg-white dark:bg-slate-700 text-slate-400 rounded-lg hover:text-slate-600">
+                                    <RotateCcw className="w-4 h-4" />
                                 </button>
                             </div>
                         </div>
-                        
-                        <div className="flex items-center gap-3 bg-slate-100 dark:bg-slate-800 rounded-xl p-2">
-                            <div className="flex-1 flex items-center justify-between px-2">
-                                <div className="flex items-center gap-2">
-                                    <Timer className={`w-4 h-4 ${timerState.isRunning ? 'text-calypso-500 animate-pulse' : 'text-slate-400'}`} />
-                                    <span className={`font-mono font-bold text-xl ${timerState.timeLeft < 10 ? 'text-rose-500' : 'text-slate-700 dark:text-slate-200'}`}>
-                                        {formatTime(timerState.timeLeft)}
-                                    </span>
+                    </div>
+
+                    {/* Main Content: Responsive Grid */}
+                    <div className="max-w-7xl mx-auto px-4 md:px-6 py-6 md:py-8">
+                        <div className="grid grid-cols-1 lg:grid-cols-[350px_1fr] gap-6 lg:gap-10 items-start">
+                            
+                            {/* Left Column (Desktop) / Top Section (Mobile) */}
+                            <div className="space-y-6 lg:sticky lg:top-24">
+                                {/* Date Nav */}
+                                <div className="flex items-center justify-between bg-white dark:bg-slate-900 p-2 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800">
+                                    <button onClick={() => shiftDate(-1)} className="p-3 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl"><ChevronLeft className="w-5 h-5 text-slate-500" /></button>
+                                    <div className="text-center">
+                                        <h2 className="text-sm font-bold text-slate-900 dark:text-white">{selectedDate.toLocaleDateString('en-US', { weekday: 'long' })}</h2>
+                                        <p className="text-xs text-slate-500 dark:text-slate-400">{selectedDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}</p>
+                                    </div>
+                                    <button onClick={() => shiftDate(1)} className="p-3 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl"><ChevronRight className="w-5 h-5 text-slate-500" /></button>
                                 </div>
-                                <span className="text-xs font-bold uppercase text-slate-400">{timerState.mode}</span>
+
+                                {/* Environment Switcher */}
+                                <div className="bg-white dark:bg-slate-900 p-1 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 flex">
+                                    {[ {id: 'gym', label: 'Gym', icon: Warehouse}, {id: 'home', label: 'Home', icon: Home}, {id: 'body', label: 'Body', icon: PersonStanding} ].map(env => (
+                                        <button 
+                                            key={env.id}
+                                            onClick={() => setEnvironment(env.id)}
+                                            className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-xs font-bold transition-all ${environment === env.id ? 'bg-calypso-500 text-white shadow-md' : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-300'}`}
+                                        >
+                                            <env.icon className="w-3.5 h-3.5" /> {env.label}
+                                        </button>
+                                    ))}
+                                </div>
+
+                                {/* Workout Summary Card */}
+                                <div className={`p-6 rounded-3xl bg-white dark:bg-slate-900 shadow-sm border-l-8 ${workout.border} flex flex-col justify-between items-start gap-4`}>
+                                    <div className="w-full flex justify-between items-start">
+                                        <div>
+                                            <h2 className="text-2xl font-display font-bold text-slate-800 dark:text-white">{workout.label}</h2>
+                                            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">{isRest ? 'Recovery & Mobility' : `${program.length} Exercises`}</p>
+                                        </div>
+                                        <div className={`p-3 rounded-2xl ${workout.text} bg-slate-50 dark:bg-slate-800`}>
+                                             <Dumbbell className="w-6 h-6" />
+                                        </div>
+                                    </div>
+                                    <div className="w-full pt-4 border-t border-slate-100 dark:border-slate-800">
+                                        <button onClick={postponeSchedule} className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 flex items-center justify-center gap-2 transition-colors">
+                                            <ArrowRight className="w-4 h-4" /> Shift Cycle
+                                        </button>
+                                    </div>
+                                </div>
                             </div>
-                            <button onClick={toggleTimer} className={`p-3 rounded-lg shadow-sm ${timerState.isRunning ? 'bg-amber-100 text-amber-600 dark:bg-amber-900/30' : 'bg-white dark:bg-slate-700 text-calypso-600'}`}>
-                                {timerState.isRunning ? <Pause className="w-4 h-4 fill-current" /> : <Play className="w-4 h-4 fill-current" />}
-                            </button>
-                            <button onClick={resetTimer} className="p-3 bg-white dark:bg-slate-700 text-slate-400 rounded-lg hover:text-slate-600">
-                                <RotateCcw className="w-4 h-4" />
-                            </button>
-                        </div>
-                    </div>
 
-                    <div className="px-4 py-4 flex items-center justify-between">
-                        <button onClick={() => shiftDate(-1)} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full"><ChevronLeft className="w-5 h-5 text-slate-500" /></button>
-                        <div className="text-center">
-                            <h2 className="text-sm font-bold text-slate-900 dark:text-white">{selectedDate.toLocaleDateString('en-US', { weekday: 'long' })}</h2>
-                            <p className="text-xs text-slate-500 dark:text-slate-400">{selectedDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}</p>
-                        </div>
-                        <button onClick={() => shiftDate(1)} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full"><ChevronRight className="w-5 h-5 text-slate-500" /></button>
-                    </div>
-
-                    <div className="px-4 mb-6">
-                        <div className="bg-white dark:bg-slate-900 p-1 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 flex">
-                            {[ {id: 'gym', label: 'Gym', icon: Warehouse}, {id: 'home', label: 'Home', icon: Home}, {id: 'body', label: 'Body', icon: PersonStanding} ].map(env => (
-                                <button 
-                                    key={env.id}
-                                    onClick={() => setEnvironment(env.id)}
-                                    className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-xs font-bold transition-all ${environment === env.id ? 'bg-calypso-500 text-white shadow-md' : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-300'}`}
-                                >
-                                    <env.icon className="w-3.5 h-3.5" /> {env.label}
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-
-                    <div className="px-4 space-y-6">
-                        <div className={`p-6 rounded-3xl bg-white dark:bg-slate-900 shadow-sm border-l-8 ${workout.border} flex flex-col md:flex-row justify-between items-start md:items-center gap-4`}>
+                            {/* Right Column (Desktop) / Bottom Section (Mobile) */}
                             <div>
-                                <h2 className="text-2xl font-display font-bold text-slate-800 dark:text-white">{workout.label}</h2>
-                                <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">{isRest ? 'Recovery & Mobility' : `${program.length} Exercises`}</p>
-                            </div>
-                            <div className="flex items-center gap-2 w-full md:w-auto">
-                                <button onClick={postponeSchedule} className="px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 flex items-center gap-2 transition-colors ml-auto">
-                                    <ArrowRight className="w-4 h-4" /> Shift Cycle
-                                </button>
+                                {!isRest ? (
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        {program.map(ex => (
+                                            <ExerciseCard 
+                                                key={ex.id} 
+                                                exercise={ex} 
+                                                progress={progress} 
+                                                onUpdate={handleUpdateProgress}
+                                                gymProgress={progress} 
+                                            />
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div className="py-24 text-center text-slate-400 bg-white dark:bg-slate-900 rounded-3xl border border-dashed border-slate-200 dark:border-slate-800">
+                                        <Coffee className="w-16 h-16 mx-auto mb-4 opacity-50" />
+                                        <p className="text-lg font-medium">Enjoy your rest day.</p>
+                                        <p className="text-sm mt-2">Light walking or stretching is recommended.</p>
+                                    </div>
+                                )}
                             </div>
                         </div>
-
-                        {!isRest ? (
-                            <div className="space-y-4">
-                                {program.map(ex => (
-                                    <ExerciseCard 
-                                        key={ex.id} 
-                                        exercise={ex} 
-                                        progress={progress} 
-                                        onUpdate={handleUpdateProgress}
-                                        gymProgress={progress} 
-                                    />
-                                ))}
-                            </div>
-                        ) : (
-                            <div className="py-12 text-center text-slate-400">
-                                <Coffee className="w-16 h-16 mx-auto mb-4 opacity-50" />
-                                <p className="text-lg font-medium">Enjoy your rest day.</p>
-                                <p className="text-sm">Light walking or stretching is recommended.</p>
-                            </div>
-                        )}
-                        <div className="h-20"></div>
                     </div>
 
                     {/* Undo Toast */}
